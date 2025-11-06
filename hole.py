@@ -26,6 +26,5 @@ plt.savefig(os.path.expanduser("~/.dottracker/dot.png"), bbox_inches="tight", pa
 plt.close()
 
 
-# Reload the shell configuration
-subprocess.run(["bash", "-c", "source ~/.bashrc"], check=False)
+os.execv("/bin/bash", ["/bin/bash"])
 
