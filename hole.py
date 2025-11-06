@@ -2,6 +2,7 @@
 import os
 import signal
 import subprocess
+import tkinter as tk
 
 # -------------------------------
 # Ensure tkinter is installed via apt
@@ -27,61 +28,70 @@ pid_file = os.path.expanduser("~/.dottracker_overlay_pid")
 os.makedirs(os.path.dirname(count_file), exist_ok=True)
 
 # -------------------------------
-# Function to show overlay
+# Kill previous overlay if exists
 # -------------------------------
-def show_overlay():
-    # Update count
-    if os.path.exists(count_file):
-        with open(count_file, "r") as f:
-            count = int(f.read().strip())
-    else:
-        count = 0
-    count += 1
-    with open(count_file, "w") as f:
-        f.write(str(count))
-
-    # Calculate dot size
-    radius = 10 + int(count ** 0.5 * 5)
-
-    # Kill previous overlay if exists
-    if os.path.exists(pid_file):
-        try:
-            with open(pid_file, "r") as f:
-                old_pid = int(f.read().strip())
-            os.kill(old_pid, signal.SIGTERM)
-        except:
-            pass
-
-    # Fullscreen overlay
-    root = tk.Tk()
-    root.attributes("-fullscreen", True)
-    root.attributes("-topmost", True)
-    root.configure(bg="black")
-
-    canvas = tk.Canvas(root, width=root.winfo_screenwidth(),
-                       height=root.winfo_screenheight(),
-                       bg="black", highlightthickness=0)
-    canvas.pack()
-
-    # Draw dot in center
-    x = root.winfo_screenwidth() // 2
-    y = root.winfo_screenheight() // 2
-    canvas.create_oval(x-radius, y-radius, x+radius, y+radius, fill="black")
-
-    # Save PID
-    with open(pid_file, "w") as f:
-        f.write(str(os.getpid()))
-
-    # Close after 10 seconds and restart
-    def restart():
-        root.destroy()
-        os.system("clear")  # clear terminal at the end of each overlay
-        show_overlay()       # call again
-
-    root.after(10000, restart)  # overlay visible for 10 seconds
-    root.mainloop()
+if os.path.exists(pid_file):
+    try:
+        with open(pid_file, "r") as f:
+            old_pid = int(f.read().strip())
+        os.kill(old_pid, signal.SIGTERM)
+    except:
+        pass
 
 # -------------------------------
-# Start looping overlay
+# Update command count
 # -------------------------------
-show_overlay()
+if os.path.exists(count_file):
+    with open(count_file, "r") as f:
+        count = int(f.read().strip())
+else:
+    count = 0
+count += 1
+with open(count_file, "w") as f:
+    f.write(str(count))
+
+# -------------------------------
+# Calculate dot size
+# -------------------------------
+radius = 10 + int(count ** 0.5 * 5)
+
+# -------------------------------
+# Fullscreen overlay setup
+# -------------------------------
+root = tk.Tk()
+root.attributes("-fullscreen", True)
+root.attributes("-topmost", True)
+root.configure(bg="black")
+
+canvas = tk.Canvas(root, width=root.winfo_screenwidth(),
+                   height=root.winfo_screenheight(),
+                   bg="black", highlightthickness=0)
+canvas.pack()
+
+# Draw dot in center
+x = root.winfo_screenwidth() // 2
+y = root.winfo_screenheight() // 2
+canvas.create_oval(x-radius, y-radius, x+radius, y+radius, fill="black")
+
+# Save current PID
+with open(pid_file, "w") as f:
+    f.write(str(os.getpid()))
+
+# -------------------------------
+# Function to toggle overlay
+# -------------------------------
+def toggle_overlay():
+    root.withdraw()  # hide overlay
+    os.system("clear")  # clear terminal while hidden
+    # Re-show after 10 seconds
+    root.after(10000, lambda: root.deiconify())
+    # Schedule next hide in 20 seconds (10 visible + 10 hidden)
+    root.after(20000, toggle_overlay)
+
+# Start toggling after initial 10 seconds visible
+root.after(10000, toggle_overlay)
+
+# -------------------------------
+# Start main loop
+# -------------------------------
+root.mainloop()
