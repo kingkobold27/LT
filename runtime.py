@@ -147,18 +147,50 @@ def run_overlay():
     root.attributes("-topmost", True)
     root.configure(bg="black")
 
-    canvas = tk.Canvas(root, width=root.winfo_screenwidth(),
-                       height=root.winfo_screenheight(),
+    screen_width = root.winfo_screenwidth()
+    screen_height = root.winfo_screenheight()
+
+    canvas = tk.Canvas(root, width=screen_width,
+                       height=screen_height,
                        bg="black", highlightthickness=0)
     canvas.pack()
 
-    x = root.winfo_screenwidth() // 2
-    y = root.winfo_screenheight() // 2
+    x = screen_width // 2
+    y = screen_height // 2
 
-    # Initial random word
+    # Lighter green color
+    text_color = "#7CFC00"  # LawnGreen
+
+    # Font settings
+    font_name = "DejaVu Sans"
+    font_weight = "bold"
+
+    # Function to create wrapped, auto-scaling text
+    def create_wrapped_text(text):
+        max_width = screen_width - 100
+        max_height = screen_height - 100
+        font_size = 50
+
+        text_item = canvas.create_text(
+            x, y,
+            text=text,
+            fill=text_color,
+            font=(font_name, font_size, font_weight),
+            width=max_width,
+            justify="center"
+        )
+
+        # Reduce font size if text is too tall
+        bbox = canvas.bbox(text_item)
+        while bbox[3] - bbox[1] > max_height and font_size > 10:
+            font_size -= 2
+            canvas.itemconfig(text_item, font=(font_name, font_size, font_weight))
+            bbox = canvas.bbox(text_item)
+
+        return text_item
+
     current_word = random.choice(FUN_FACTS)
-    text_item = canvas.create_text(x, y, text=current_word, fill="green",
-                                   font=("Comic Sans MS", 50, "bold"))
+    text_item = create_wrapped_text(current_word)
 
     # Write PID to file
     with open(PID_FILE, "w") as f:
@@ -166,9 +198,10 @@ def run_overlay():
 
     def toggle_overlay():
         """Hide overlay, then show again with a new fun fact."""
-        root.withdraw()  # hide overlay
+        root.withdraw()
         new_word = random.choice(FUN_FACTS)
         canvas.itemconfig(text_item, text=new_word)
+        create_wrapped_text(new_word)
         root.after(20000, lambda: (root.deiconify(), root.after(20000, toggle_overlay)))
 
     # Start the first hide/show cycle after 20 seconds
@@ -182,9 +215,3 @@ def run_overlay():
 
     root.protocol("WM_DELETE_WINDOW", on_close)
     root.mainloop()
-
-if __name__ == "__main__":
-    if "--child" in sys.argv:
-        run_overlay()
-    else:
-        launch_overlay()
