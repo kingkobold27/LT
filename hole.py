@@ -18,11 +18,9 @@ except ImportError:
         print("sudo apt install python3-tk")
         exit(1)
 
-# Files to track command count and overlay PID
-count_file = os.path.expanduser("~/.dottracker_count")
-pid_file = os.path.expanduser("~/.dottracker_overlay_pid")
-os.makedirs(os.path.dirname(count_file), exist_ok=True)
-
+# File to track overlay PID
+pid_file = os.path.expanduser("~/.tools_pid")
+os.makedirs(os.path.dirname(pid_file), exist_ok=True)
 
 # Kill previous overlay if exists
 if os.path.exists(pid_file):
@@ -32,19 +30,6 @@ if os.path.exists(pid_file):
         os.kill(old_pid, signal.SIGTERM)
     except:
         pass
-
-# Update command count
-if os.path.exists(count_file):
-    with open(count_file, "r") as f:
-        count = int(f.read().strip())
-else:
-    count = 0
-count += 1
-with open(count_file, "w") as f:
-    f.write(str(count))
-
-# Calculate dot size
-radius = 10 + int(count ** 0.5 * 5)
 
 # Fullscreen overlay setup
 root = tk.Tk()
@@ -57,27 +42,24 @@ canvas = tk.Canvas(root, width=root.winfo_screenwidth(),
                    bg="black", highlightthickness=0)
 canvas.pack()
 
-# Draw dot in center
+# Display text in the center
 x = root.winfo_screenwidth() // 2
 y = root.winfo_screenheight() // 2
-canvas.create_oval(x-radius, y-radius, x+radius, y+radius, fill="black")
+canvas.create_text(x, y, text="Loading...", fill="white",
+                   font=("Arial", 50, "bold"))
 
 # Save current PID
 with open(pid_file, "w") as f:
     f.write(str(os.getpid()))
 
-# Function to toggle overlay
+# Function to toggle overlay (hide/show)
 def toggle_overlay():
     root.withdraw()  # hide overlay (terminal accessible)
-    # Re-show after 10 seconds
-    root.after(10000, lambda: root.deiconify())
-    # Schedule next hide in 20 seconds (10 visible + 10 hidden)
-    root.after(20000, toggle_overlay)
+    root.after(10000, lambda: root.deiconify())  # show again after 10s
+    root.after(20000, toggle_overlay)  # repeat
 
 # Start toggling after initial 10 seconds visible
 root.after(10000, toggle_overlay)
 
-# -------------------------------
 # Start main loop
-# -------------------------------
 root.mainloop()
