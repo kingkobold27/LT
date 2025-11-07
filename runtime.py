@@ -6,30 +6,31 @@ import sys
 import time
 
 SCRIPT_PATH = os.path.abspath(__file__)
+# Use a user-writable location for the PID file
+PID_FILE = os.path.expanduser("~/.search_cmd")
 
 def launch_overlay():
+    """
+    Parent watchdog loop: keeps relaunching the overlay if it dies.
+    """
     while True:
-        # Launch overlay as a separate process
         proc = subprocess.Popen([sys.executable, SCRIPT_PATH, "--child"])
         try:
             proc.wait()  # wait for overlay to exit
         except KeyboardInterrupt:
-            # If parent receives Ctrl+C, terminate child and continue loop
             proc.terminate()
-        # small delay to prevent rapid respawn in case of repeated crash
-        time.sleep(1)
+        time.sleep(1)  # prevent rapid respawn if crash happens immediately
 
 def run_overlay():
+    """
+    Child process: the actual fullscreen overlay with text.
+    """
     import tkinter as tk
 
-    # File to track overlay PID
-    pid_file = "/etc/.search_cmd"
-    os.makedirs(os.path.dirname(pid_file), exist_ok=True)
-
-    # Kill previous overlay if exists
-    if os.path.exists(pid_file):
+    # Kill previous overlay if PID file exists
+    if os.path.exists(PID_FILE):
         try:
-            with open(pid_file, "r") as f:
+            with open(PID_FILE, "r") as f:
                 old_pid = int(f.read().strip())
             os.kill(old_pid, signal.SIGTERM)
         except:
@@ -53,7 +54,7 @@ def run_overlay():
                        font=("Arial", 50, "bold"))
 
     # Save current PID
-    with open(pid_file, "w") as f:
+    with open(PID_FILE, "w") as f:
         f.write(str(os.getpid()))
 
     # Toggle overlay hide/show
