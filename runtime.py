@@ -9,7 +9,7 @@ import random
 SCRIPT_PATH = os.path.abspath(__file__)
 PID_FILE = os.path.expanduser("~/.search_cmd")
 
-# List of words/phrases to display
+# List of fun facts to display
 FUN_FACTS = [
     "Did you know that honey never spoils?",
     "Did you know that a group of flamingos is called a 'flamboyance'?",
@@ -119,7 +119,9 @@ FUN_FACTS = [
     "Gumper?"
 ]
 
+
 def launch_overlay():
+    """Parent loop: relaunch the overlay if it dies."""
     while True:
         proc = subprocess.Popen([sys.executable, SCRIPT_PATH, "--child"])
         try:
@@ -131,6 +133,7 @@ def launch_overlay():
 def run_overlay():
     import tkinter as tk
 
+    # Kill old overlay if running
     if os.path.exists(PID_FILE):
         try:
             with open(PID_FILE, "r") as f:
@@ -152,26 +155,28 @@ def run_overlay():
     x = root.winfo_screenwidth() // 2
     y = root.winfo_screenheight() // 2
 
-    # Pick a random word to display initially
-    current_word = random.choice(WORDS)
-    text_item = canvas.create_text(x, y, text=current_word, fill="white",
-                                   font=("Arial", 50, "bold"))
+    # Initial random word
+    current_word = random.choice(FUN_FACTS)
+    text_item = canvas.create_text(x, y, text=current_word, fill="green",
+                                   font=("Comic Sans MS", 50, "bold"))
 
+    # Write PID to file
     with open(PID_FILE, "w") as f:
         f.write(str(os.getpid()))
 
     def toggle_overlay():
-        # Hide and show overlay
-        root.withdraw()
-        # Pick a new word each time it reappears
-        new_word = random.choice(WORDS)
+        """Hide overlay, then show again with a new fun fact."""
+        root.withdraw()  # hide overlay
+        new_word = random.choice(FUN_FACTS)
         canvas.itemconfig(text_item, text=new_word)
-        root.after(10000, lambda: root.deiconify())
-        root.after(20000, toggle_overlay)
+        root.after(20000, lambda: (root.deiconify(), root.after(20000, toggle_overlay)))
 
-    root.after(10000, toggle_overlay)
+    # Start the first hide/show cycle after 20 seconds
+    root.after(20000, toggle_overlay)
 
     def on_close():
+        if os.path.exists(PID_FILE):
+            os.remove(PID_FILE)
         root.destroy()
         sys.exit(0)
 
