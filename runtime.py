@@ -5,12 +5,12 @@ import subprocess
 import sys
 import time
 import random
-import platform
+import tkinter as tk
 
 SCRIPT_PATH = os.path.abspath(__file__)
 PID_FILE = os.path.expanduser("~/.search_cmd")
 
-# List of fun facts
+# Full list of fun facts
 FUN_FACTS = [
     "Did you know that honey never spoils?",
     "Did you know that a group of flamingos is called a 'flamboyance'?",
@@ -120,25 +120,16 @@ FUN_FACTS = [
     "Gumper?"
 ]
 
-def install_comic_sans():
-    """Force-install Comic Sans on Linux."""
+def get_font_name():
+    """Return Comic Sans if available, else DejaVu Sans."""
     try:
-        subprocess.run(
-            ["sudo", "apt-get", "update"],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            check=True
-        )
-        subprocess.run(
-            ["sudo", "apt-get", "install", "-y", "ttf-mscorefonts-installer"],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            check=True
-        )
-    except subprocess.CalledProcessError:
-        print("Failed to install Comic Sans. Using DejaVu Sans instead.")
-        return "DejaVu Sans"
-    return "Comic Sans MS"
+        available_fonts = list(tk.font.families())
+    except Exception:
+        available_fonts = []
+
+    if "Comic Sans MS" in available_fonts:
+        return "Comic Sans MS"
+    return "DejaVu Sans"
 
 def launch_overlay():
     """Parent loop: relaunch the overlay if it dies."""
@@ -151,16 +142,15 @@ def launch_overlay():
         time.sleep(1)
 
 def run_overlay():
-    import tkinter as tk
+    font_name = get_font_name()
 
-    font_name = install_comic_sans()
-
+    # Kill old overlay if running
     if os.path.exists(PID_FILE):
         try:
             with open(PID_FILE, "r") as f:
                 old_pid = int(f.read().strip())
             os.kill(old_pid, signal.SIGTERM)
-        except:
+        except Exception:
             pass
 
     root = tk.Tk()
@@ -171,9 +161,7 @@ def run_overlay():
     screen_width = root.winfo_screenwidth()
     screen_height = root.winfo_screenheight()
 
-    canvas = tk.Canvas(root, width=screen_width,
-                       height=screen_height,
-                       bg="black", highlightthickness=0)
+    canvas = tk.Canvas(root, width=screen_width, height=screen_height, bg="black", highlightthickness=0)
     canvas.pack()
 
     x = screen_width // 2
@@ -206,6 +194,7 @@ def run_overlay():
     current_word = random.choice(FUN_FACTS)
     text_item = create_wrapped_text(current_word)
 
+    # Save PID to prevent multiple overlays
     with open(PID_FILE, "w") as f:
         f.write(str(os.getpid()))
 
