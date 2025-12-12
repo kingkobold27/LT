@@ -203,9 +203,9 @@ def run_overlay():
         canvas.itemconfig(text_item, text=new_word)
         scale_text()
         root.deiconify()
-        root.after(20000, toggle_overlay)
+        root.after(DELAY, toggle_overlay)
 
-    root.after(20000, toggle_overlay)
+    root.after(DELAY, toggle_overlay)
 
     def on_close():
         if os.path.exists(PID_FILE):
